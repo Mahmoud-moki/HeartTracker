@@ -79,16 +79,23 @@ export default function Page() {
 
   const connectBluetooth = async () => {
     try {
+      console.log("🔵 Step 1: Checking browser support...");
+
       if (!(navigator as any).bluetooth) {
         alert("Bluetooth not supported in this browser");
         return;
       }
 
-      console.log("🔵 Requesting device...");
+      console.log("🔵 Step 2: Requesting device...");
 
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
+        optionalServices: [
+          "c18d85f8-7801-41f8-b392-610c23cdc0fe", // IMPORTANT FIX
+        ],
       });
+
+      console.log("✅ Device selected:", device.name);
 
       setDeviceName(device.name || "Unknown Device");
 
@@ -97,16 +104,29 @@ export default function Page() {
         setConnected(false);
       });
 
+      console.log("🔵 Step 3: Connecting to GATT...");
+
       const server = await device.gatt.connect();
+
+      console.log("✅ GATT connected");
+
       setConnected(true);
+
+      console.log("🔵 Step 4: Getting service...");
 
       const service = await server.getPrimaryService(
         "c18d85f8-7801-41f8-b392-610c23cdc0fe",
       );
 
+      console.log("✅ Service found");
+
+      console.log("🔵 Step 5: Getting characteristic...");
+
       const characteristic = await service.getCharacteristic(
         "f3c50892-9a0d-4f0c-b87e-6e5ae3abe63c",
       );
+
+      console.log("✅ Characteristic found");
 
       characteristic.addEventListener(
         "characteristicvaluechanged",
@@ -124,7 +144,6 @@ export default function Page() {
 
             console.log("❤️ HR:", hr, "🫁 SpO2:", sp);
 
-            // ignore invalid
             if (hr === 0 && sp === 0) return;
             if (hr < 40 || hr > 200) return;
             if (sp < 80 || sp > 100) return;
@@ -132,7 +151,7 @@ export default function Page() {
             setHeartRate(hr);
             setSpo2(sp);
 
-            // 🔴 LOW HEART RATE LOGS
+            // 🔴 LOW HEART RATE LIST
             if (hr < 60) {
               setLowHeartLogs((prev) => [
                 { value: text, timestamp: Date.now() },
@@ -141,16 +160,17 @@ export default function Page() {
             }
           }
 
-          // 🟢 ALL LOGS
           setLogs((prev) => [{ value: text, timestamp: Date.now() }, ...prev]);
         },
       );
 
+      console.log("🔵 Step 6: Starting notifications...");
+
       await characteristic.startNotifications();
 
-      console.log("🎉 Connected and listening...");
+      console.log("🎉 READY: Listening for ESP32 data");
     } catch (err) {
-      console.error("❌ Bluetooth error:", err);
+      console.error("❌ Bluetooth FULL ERROR:", err);
       setConnected(false);
     }
   };
@@ -160,7 +180,7 @@ export default function Page() {
       <TopNav />
 
       <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6 gap-6">
-        {/* Connect */}
+        {/* CONNECT */}
         <button
           onClick={connectBluetooth}
           className="px-6 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700 transition"
@@ -168,7 +188,7 @@ export default function Page() {
           {connected ? "Connected" : "Connect ESP32"}
         </button>
 
-        {/* Circles */}
+        {/* CIRCLES */}
         <div className="flex gap-8">
           <Circle
             value={heartRate}
@@ -179,7 +199,7 @@ export default function Page() {
           <Circle value={spo2} label="SpO₂ 🫁" color="#22c55e" max={100} />
         </div>
 
-        {/* Device */}
+        {/* DEVICE */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
           <h2 className="text-lg font-bold text-black">Device Status</h2>
           <p className="text-sm text-gray-500">
@@ -213,7 +233,7 @@ export default function Page() {
         {/* LOW HEART RATE ALERTS */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5 border border-red-200">
           <h2 className="text-lg font-bold text-red-600 mb-3">
-            ⚠️ Low Heart Rate Alerts (&lt; 60)
+            ⚠️ Low Heart Rate (&lt; 60)
           </h2>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
