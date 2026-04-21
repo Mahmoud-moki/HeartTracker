@@ -2,13 +2,15 @@
 
 import React, { useState } from "react";
 import { TopNav } from "./TopNav";
+import { Bubbles } from "lucide-react";
+import GradientButton from "./_components/button";
 
 type DeviceLog = {
   value: string;
   timestamp: number;
 };
 
-// 🔵 Circle Component
+// 🔵 Circle Component (FIXED: label is ReactNode)
 const Circle = ({
   value,
   label,
@@ -16,7 +18,7 @@ const Circle = ({
   max = 100,
 }: {
   value: number | null;
-  label: string;
+  label: React.ReactNode;
   color: string;
   max?: number;
 }) => {
@@ -70,32 +72,29 @@ export default function Page() {
   const [deviceName, setDeviceName] = useState("");
 
   const [logs, setLogs] = useState<DeviceLog[]>([]);
-  const [lowHeartLogs, setLowHeartLogs] = useState<DeviceLog[]>([]);
+  const [alerts, setAlerts] = useState<
+    { type: "hr" | "spo2"; value: string; timestamp: number }[]
+  >([]);
 
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [spo2, setSpo2] = useState<number | null>(null);
 
-  const isLowHeartRate = heartRate !== null && heartRate < 60;
+  const isLowHR = heartRate !== null && heartRate < 60;
+  const isLowSpO2 = spo2 !== null && spo2 < 90;
 
   const connectBluetooth = async () => {
     try {
-      console.log("🔵 Step 1: Checking browser support...");
-
       if (!(navigator as any).bluetooth) {
         alert("Bluetooth not supported in this browser");
         return;
       }
 
-      console.log("🔵 Step 2: Requesting device...");
+      console.log("🔵 Requesting device...");
 
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [
-          "c18d85f8-7801-41f8-b392-610c23cdc0fe", // IMPORTANT FIX
-        ],
+        optionalServices: ["c18d85f8-7801-41f8-b392-610c23cdc0fe"],
       });
-
-      console.log("✅ Device selected:", device.name);
 
       setDeviceName(device.name || "Unknown Device");
 
@@ -104,29 +103,16 @@ export default function Page() {
         setConnected(false);
       });
 
-      console.log("🔵 Step 3: Connecting to GATT...");
-
       const server = await device.gatt.connect();
-
-      console.log("✅ GATT connected");
-
       setConnected(true);
-
-      console.log("🔵 Step 4: Getting service...");
 
       const service = await server.getPrimaryService(
         "c18d85f8-7801-41f8-b392-610c23cdc0fe",
       );
 
-      console.log("✅ Service found");
-
-      console.log("🔵 Step 5: Getting characteristic...");
-
       const characteristic = await service.getCharacteristic(
         "f3c50892-9a0d-4f0c-b87e-6e5ae3abe63c",
       );
-
-      console.log("✅ Characteristic found");
 
       characteristic.addEventListener(
         "characteristicvaluechanged",
@@ -134,15 +120,11 @@ export default function Page() {
           const value: DataView = event.target.value;
           const text = new TextDecoder().decode(value);
 
-          console.log("📡 RAW DATA:", text);
-
           const match = text.match(/(\d+).*?(\d+)/);
 
           if (match) {
             const hr = parseInt(match[1]);
             const sp = parseInt(match[2]);
-
-            console.log("❤️ HR:", hr, "🫁 SpO2:", sp);
 
             if (hr === 0 && sp === 0) return;
             if (hr < 40 || hr > 200) return;
@@ -151,10 +133,14 @@ export default function Page() {
             setHeartRate(hr);
             setSpo2(sp);
 
-            // 🔴 LOW HEART RATE LIST
-            if (hr < 60) {
-              setLowHeartLogs((prev) => [
-                { value: text, timestamp: Date.now() },
+            if (hr < 60 || sp < 90) {
+              setAlerts((prev) => [
+                {
+                  type: hr < 60 ? "hr" : "spo2",
+                  value:
+                    hr < 60 ? `Heart Rate is low: ${hr}` : `SpO₂ is low: ${sp}`,
+                  timestamp: Date.now(),
+                },
                 ...prev,
               ]);
             }
@@ -164,13 +150,11 @@ export default function Page() {
         },
       );
 
-      console.log("🔵 Step 6: Starting notifications...");
-
       await characteristic.startNotifications();
 
-      console.log("🎉 READY: Listening for ESP32 data");
+      console.log("🎉 Listening...");
     } catch (err) {
-      console.error("❌ Bluetooth FULL ERROR:", err);
+      console.error("❌ Bluetooth error:", err);
       setConnected(false);
     }
   };
@@ -183,44 +167,53 @@ export default function Page() {
         {/* CONNECT */}
         <button
           onClick={connectBluetooth}
-          className="px-6 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700 transition"
+          className="px-6 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700"
         >
           {connected ? "Connected" : "Connect ESP32"}
         </button>
-
+        <GradientButton />
         {/* CIRCLES */}
-        <div className="flex gap-8">
+        <div className="flex gap-8 font-bold">
           <Circle
             value={heartRate}
             label="Heart Rate ❤️"
-            color={isLowHeartRate ? "#ef4444" : "#22c55e"}
+            color={isLowHR ? "#ef4444" : "#22c55e"}
             max={180}
           />
-          <Circle value={spo2} label="SpO₂ 🫁" color="#22c55e" max={100} />
+
+          {/* ✅ FIXED ICON USAGE */}
+          <Circle
+            value={spo2}
+            label={
+              <div className="flex font-bold items-center gap-1">
+                <span>SpO₂</span>
+                <Bubbles className="w-4 h-4 text-blue-500" />
+              </div>
+            }
+            color={isLowSpO2 ? "#ef4444" : "#22c55e"}
+            max={100}
+          />
         </div>
 
         {/* DEVICE */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
-          <h2 className="text-lg font-bold text-black">Device Status</h2>
+          <h2 className="text-lg text-black font-bold">Device Status</h2>
           <p className="text-sm text-gray-500">
             {connected ? `Connected to ${deviceName}` : "Not connected"}
           </p>
         </div>
 
-        {/* ALL LOGS */}
+        {/* LOGS */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
-          <h2 className="text-lg font-bold text-black mb-3">Live ESP32 Data</h2>
+          <h2 className="text-lg text-black font-bold mb-3">Live Data</h2>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {logs.length === 0 ? (
               <p className="text-gray-400 text-sm">Waiting for data...</p>
             ) : (
               logs.map((log, i) => (
-                <div
-                  key={i}
-                  className="bg-gray-100 p-2 rounded-lg text-sm font-mono"
-                >
-                  <div className="text-black">{log.value}</div>
+                <div key={i} className="bg-gray-100 p-2 rounded-lg text-sm">
+                  <div>{log.value}</div>
                   <div className="text-xs text-gray-500">
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </div>
@@ -230,27 +223,35 @@ export default function Page() {
           </div>
         </div>
 
-        {/* LOW HEART RATE ALERTS */}
-        <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5 border border-red-200">
-          <h2 className="text-lg font-bold text-red-600 mb-3">
-            ⚠️ Low Heart Rate (&lt; 60)
+        {/* 🚨 ALERTS */}
+        <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
+          <h2 className="text-lg font-bold mb-3 text-red-600">
+            ⚠️ Health Alerts
           </h2>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {lowHeartLogs.length === 0 ? (
+            {alerts.length === 0 ? (
               <p className="text-gray-400 text-sm">No alerts</p>
             ) : (
-              lowHeartLogs.map((log, i) => (
-                <div
-                  key={i}
-                  className="bg-red-100 p-2 rounded-lg text-sm font-mono"
-                >
-                  <div className="text-black">{log.value}</div>
-                  <div className="text-xs text-gray-500">
-                    {new Date(log.timestamp).toLocaleTimeString()}
+              alerts.map((a, i) => {
+                const isHR = a.type === "hr";
+
+                return (
+                  <div
+                    key={i}
+                    className={`p-2 rounded-lg text-sm font-medium border ${
+                      isHR
+                        ? "bg-red-100 border-red-400 text-red-700"
+                        : "bg-blue-100 border-blue-400 text-blue-700"
+                    }`}
+                  >
+                    {a.value}
+                    <div className="text-xs text-gray-500">
+                      {new Date(a.timestamp).toLocaleTimeString()}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
