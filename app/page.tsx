@@ -68,7 +68,9 @@ const Circle = ({
 export default function Page() {
   const [connected, setConnected] = useState(false);
   const [deviceName, setDeviceName] = useState("");
+
   const [logs, setLogs] = useState<DeviceLog[]>([]);
+  const [lowHeartLogs, setLowHeartLogs] = useState<DeviceLog[]>([]);
 
   const [heartRate, setHeartRate] = useState<number | null>(null);
   const [spo2, setSpo2] = useState<number | null>(null);
@@ -77,16 +79,15 @@ export default function Page() {
 
   const connectBluetooth = async () => {
     try {
-      if (!(navigator as any).bluetooth) {
+      if (!navigator.bluetooth) {
         alert("Bluetooth not supported in this browser");
         return;
       }
 
       console.log("🔵 Requesting device...");
 
-      const device = await (navigator as any).bluetooth.requestDevice({
-        filters: [{ services: ["c18d85f8-7801-41f8-b392-610c23cdc0fe"] }],
-        optionalServices: ["c18d85f8-7801-41f8-b392-610c23cdc0fe"],
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
       });
 
       setDeviceName(device.name || "Unknown Device");
@@ -123,20 +124,31 @@ export default function Page() {
 
             console.log("❤️ HR:", hr, "🫁 SpO2:", sp);
 
-            // ❌ Ignore invalid readings
+            // ignore invalid
             if (hr === 0 && sp === 0) return;
             if (hr < 40 || hr > 200) return;
             if (sp < 80 || sp > 100) return;
 
             setHeartRate(hr);
             setSpo2(sp);
+
+            // 🔴 LOW HEART RATE LOGS
+            if (hr < 60) {
+              setLowHeartLogs((prev) => [
+                { value: text, timestamp: Date.now() },
+                ...prev,
+              ]);
+            }
           }
 
+          // 🟢 ALL LOGS
           setLogs((prev) => [{ value: text, timestamp: Date.now() }, ...prev]);
         },
       );
 
       await characteristic.startNotifications();
+
+      console.log("🎉 Connected and listening...");
     } catch (err) {
       console.error("❌ Bluetooth error:", err);
       setConnected(false);
@@ -169,40 +181,56 @@ export default function Page() {
 
         {/* Device */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
-          <h2 className="text-lg font-bold">Device Status</h2>
-
+          <h2 className="text-lg font-bold text-black">Device Status</h2>
           <p className="text-sm text-gray-500">
             {connected ? `Connected to ${deviceName}` : "Not connected"}
           </p>
         </div>
 
-        {/* Logs */}
+        {/* ALL LOGS */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
-          <h2 className="text-lg font-bold mb-3">Live ESP32 Data</h2>
+          <h2 className="text-lg font-bold text-black mb-3">Live ESP32 Data</h2>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {logs.length === 0 ? (
               <p className="text-gray-400 text-sm">Waiting for data...</p>
             ) : (
-              logs.map((log, i) => {
-                const match = log.value.match(/(\d+).*?(\d+)/);
-                const hr = match ? parseInt(match[1]) : null;
-                const isLow = hr !== null && hr < 60;
-
-                return (
-                  <div
-                    key={i}
-                    className={`p-2 rounded-lg text-sm font-mono transition ${
-                      isLow ? "bg-red-100" : "bg-gray-100"
-                    }`}
-                  >
-                    <div className="text-black">{log.value}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </div>
+              logs.map((log, i) => (
+                <div
+                  key={i}
+                  className="bg-gray-100 p-2 rounded-lg text-sm font-mono"
+                >
+                  <div className="text-black">{log.value}</div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(log.timestamp).toLocaleTimeString()}
                   </div>
-                );
-              })
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* LOW HEART RATE ALERTS */}
+        <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5 border border-red-200">
+          <h2 className="text-lg font-bold text-red-600 mb-3">
+            ⚠️ Low Heart Rate Alerts (&lt; 60)
+          </h2>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {lowHeartLogs.length === 0 ? (
+              <p className="text-gray-400 text-sm">No alerts</p>
+            ) : (
+              lowHeartLogs.map((log, i) => (
+                <div
+                  key={i}
+                  className="bg-red-100 p-2 rounded-lg text-sm font-mono"
+                >
+                  <div className="text-black">{log.value}</div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
