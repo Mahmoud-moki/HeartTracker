@@ -77,14 +77,14 @@ export default function Page() {
 
   const connectBluetooth = async () => {
     try {
-      if (!navigator.bluetooth) {
+      if (!(navigator as any).bluetooth) {
         alert("Bluetooth not supported in this browser");
         return;
       }
 
       console.log("🔵 Requesting device...");
 
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator as any).bluetooth.requestDevice({
         filters: [{ services: ["c18d85f8-7801-41f8-b392-610c23cdc0fe"] }],
         optionalServices: ["c18d85f8-7801-41f8-b392-610c23cdc0fe"],
       });
