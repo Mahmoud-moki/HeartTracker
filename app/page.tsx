@@ -127,18 +127,21 @@ export default function Page() {
             const sp = parseInt(match[2]);
 
             if (hr === 0 && sp === 0) return;
-            if (hr < 40 || hr > 200) return;
+            if (hr < 40 || hr > 200) return; // allow realistic max values
             if (sp < 80 || sp > 100) return;
 
             setHeartRate(hr);
             setSpo2(sp);
-
-            if (hr < 60 || sp < 90) {
+            if (hr < 60 || hr > 130 || sp < 90) {
               setAlerts((prev) => [
                 {
-                  type: hr < 60 ? "hr" : "spo2",
+                  type: hr < 60 || hr > 130 ? "hr" : "spo2",
                   value:
-                    hr < 60 ? `Heart Rate is low: ${hr}` : `SpO₂ is low: ${sp}`,
+                    hr < 60
+                      ? `Heart Rate is low: ${hr}`
+                      : hr > 130
+                        ? `⚠️ Heart Rate is HIGH: ${hr}`
+                        : `SpO₂ is low: ${sp}`,
                   timestamp: Date.now(),
                 },
                 ...prev,
@@ -159,19 +162,71 @@ export default function Page() {
     }
   };
 
+  const layers = [
+    { delay: "0s", duration: "25s" },
+    { delay: "0.15s", duration: "15.9s" },
+    { delay: "0.53s", duration: "26.4s" },
+    { delay: "0.45s", duration: "17.8s" },
+    { delay: "1.6s", duration: "19.2s" },
+    { delay: "1.6s", duration: "29.2s" },
+    { delay: "1.6s", duration: "20.2s" },
+  ];
+
   return (
     <>
       <TopNav />
 
       <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6 gap-6">
         {/* CONNECT */}
-        <button
+        {/* <button
           onClick={connectBluetooth}
           className="px-6 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700"
         >
           {connected ? "Connected" : "Connect ESP32"}
-        </button>
-        <GradientButton />
+        </button> */}
+        <div className="relative flex items-center justify-center overflow-hidden rounded-[32px] border-2 border-white px-10 py-4 font-semibold text-xl isolate">
+          {/* glow light */}
+          <div className="absolute w-[80%] h-6 bg-white/30 blur-md rounded-full animate-pulse" />
+
+          {/* animated layers */}
+          {layers.map((l, i) => (
+            <div
+              key={i}
+              className="absolute left-[-160px] w-[500%] aspect-square rounded-full mix-blend-difference"
+              style={{
+                background:
+                  "radial-gradient(circle at 65% 180%, #ff00ff, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00aa, #ff8800)",
+                animation: `spin ${l.duration} linear infinite`,
+                animationDelay: l.delay,
+              }}
+            />
+          ))}
+
+          {/* button */}
+          <button
+            className=" z-10 px-10 py-3 rounded-[32px] font-semibold tracking-widest text-black mix-blend-difference"
+            onClick={connectBluetooth}
+          >
+            {connected ? "Connected" : "Connect ESP32"}
+          </button>
+
+          {/* overlay text */}
+          <div className="absolute z-20 pointer-events-none tracking-widest text-white mix-blend-multiply">
+            {connected ? "Connected" : "Connect ESP32"}
+          </div>
+
+          {/* animation */}
+          <style jsx>{`
+            @keyframes spin {
+              0% {
+                transform: rotate(0deg);
+              }
+              100% {
+                transform: rotate(360deg);
+              }
+            }
+          `}</style>
+        </div>{" "}
         {/* CIRCLES */}
         <div className="flex gap-8 font-bold">
           <Circle
@@ -194,7 +249,6 @@ export default function Page() {
             max={100}
           />
         </div>
-
         {/* DEVICE */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
           <h2 className="text-lg text-black font-bold">Device Status</h2>
@@ -202,7 +256,6 @@ export default function Page() {
             {connected ? `Connected to ${deviceName}` : "Not connected"}
           </p>
         </div>
-
         {/* LOGS */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
           <h2 className="text-lg text-black font-bold mb-3">Live Data</h2>
@@ -214,7 +267,7 @@ export default function Page() {
               logs.map((log, i) => (
                 <div key={i} className="bg-gray-100 p-2 rounded-lg text-sm">
                   <div>{log.value}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-black">
                     {new Date(log.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
@@ -222,7 +275,6 @@ export default function Page() {
             )}
           </div>
         </div>
-
         {/* 🚨 ALERTS */}
         <div className="w-full max-w-md bg-white shadow-lg rounded-2xl p-5">
           <h2 className="text-lg font-bold mb-3 text-red-600">
