@@ -178,55 +178,13 @@ export default function Page() {
 
       <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6 gap-6">
         {/* CONNECT */}
-        {/* <button
+        <button
           onClick={connectBluetooth}
           className="px-6 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700"
         >
           {connected ? "Connected" : "Connect ESP32"}
-        </button> */}
-        <div className="relative flex items-center justify-center overflow-hidden rounded-[32px] border-2 border-white px-10 py-4 font-semibold text-xl isolate">
-          {/* glow light */}
-          <div className="absolute w-[80%] h-6 bg-white/30 blur-md rounded-full animate-pulse" />
+        </button>
 
-          {/* animated layers */}
-          {layers.map((l, i) => (
-            <div
-              key={i}
-              className="absolute left-[-160px] w-[500%] aspect-square rounded-full mix-blend-difference"
-              style={{
-                background:
-                  "radial-gradient(circle at 65% 180%, #ff00ff, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00aa, #ff8800)",
-                animation: `spin ${l.duration} linear infinite`,
-                animationDelay: l.delay,
-              }}
-            />
-          ))}
-
-          {/* button */}
-          <button
-            className=" z-10 px-10 py-3 rounded-[32px] font-semibold tracking-widest text-black mix-blend-difference"
-            onClick={connectBluetooth}
-          >
-            {connected ? "Connected" : "Connect ESP32"}
-          </button>
-
-          {/* overlay text */}
-          <div className="absolute z-20 pointer-events-none tracking-widest text-white mix-blend-multiply">
-            {connected ? "Connected" : "Connect ESP32"}
-          </div>
-
-          {/* animation */}
-          <style jsx>{`
-            @keyframes spin {
-              0% {
-                transform: rotate(0deg);
-              }
-              100% {
-                transform: rotate(360deg);
-              }
-            }
-          `}</style>
-        </div>{" "}
         {/* CIRCLES */}
         <div className="flex gap-8 font-bold">
           <Circle
